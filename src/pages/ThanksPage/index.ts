@@ -1,0 +1,1 @@
+export {ThanksPage} from "./ThanksPage"

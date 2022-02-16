@@ -1,0 +1,1 @@
+export const SEC_BEFORE_REDIRECT = 5

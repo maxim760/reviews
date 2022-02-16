@@ -1,12 +1,27 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import App from './App';
+import { App } from './App';
 import reportWebVitals from './reportWebVitals';
+import { HashRouter } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ruRU } from '@mui/material/locale';
 
+const theme = createTheme({
+  typography: {
+    fontFamily: [
+      'Rubik',
+      'sans-serif',
+    ].join(','),
+  }
+}, ruRU)
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    <HashRouter>
+      <ThemeProvider theme={theme}>
+        <App />
+      </ThemeProvider>
+    </HashRouter>
   </React.StrictMode>,
   document.getElementById('root')
 );
