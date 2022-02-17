@@ -9,31 +9,27 @@ import AssignmentIcon from '@mui/icons-material/AssignmentIndOutlined';
 import { MainTemplate } from "../../components/templates/MainTemplate";
 import { RoutePaths } from "../../utils/router/routes";
 import {useNavigate} from "react-router-dom"
-import { ChangeRateFn, IRating, ISpecItem } from "../../utils/types";
+import { ChangeRateFn, IRating, IRatingForVisit, IStateError } from "../../utils/types";
 import {RatingItem, RatingSpecList} from "./components"
-import { SxProps, Theme } from "@mui/material/styles";
-const mockData: ISpecItem[] = [
-  {specName: "Алина Алинова", id: "3"},
-  {specName: "Ирина Петрова", id: "4"},
-]
-const data: ISpecItem[] = [
-  {specName: "Иван Иванов", id: "0"},
-  {specName: "Алина Алинова", id: "3"},
-  {specName: "Ирина Петрова", id: "4"},
+import { request, ReviewData } from "../../utils";
+import { useNavigateSameParams } from "../../utils/hooks/useNavigateSameParams";
+const mockData: IRatingForVisit[] = [
+  {RECNAME: "Алина Алинова", CRVID: "3", DOCID: "3", RATING: null, COMMENT: "", IMGURL: "", RECTYPEID: "1"},
+  {RECNAME: "Ирина Петрова", CRVID: "4", DOCID: "4", RATING: null, COMMENT: "", IMGURL: "", RECTYPEID: "1"},
 ]
 
 type IRatingState = {
-  [key: string]: ISpecItem & {rating: IRating}
+  [key: string]: IRatingForVisit
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const toInitRatings = (data: ISpecItem[]): IRatingState => {
+const toInitRatings = (data: IRatingForVisit[]): IRatingState => {
   return data
     .reduce((acc, item) => {
       return {
         ...acc,
-        [item.id]: {...item, rating: null}
+        [item.CRVID]: {...item, RATING: null}
       }
     }, {})
 }
@@ -64,19 +60,36 @@ const styles = {
     width: "100%"
   },
 } as const
+
+
 export const RatingPage = () => {
-  const [visitRate, setVisitRate] = useState<IRating>(null)
-  const navigate = useNavigate()
-  const [ratings, setRatings] = useState<IRatingState>(() => toInitRatings(data))
-  const [review, setReview] = useState("")
+  const [visitRate, setVisitRate] = useState<IRatingForVisit | null>(null)
+  const navigate = useNavigateSameParams()
+  const [ratings, setRatings] = useState<IRatingState>({})
   const [error, setError] = useState({error: false, message: ''})
   const [loading, setLoading] = useState(true)
   const [formLoading, setFormLoading] = useState(false)
+  const visitId = ReviewData.getVisitId()
   const removeError = () => setError(prev => ({...prev, error: false}))
   useEffect(() => {
-    setTimeout(() => {
+    const loadData = async () => {
+      setLoading(true)
+      const data: IRatingForVisit[] = await request("CRVGetListByVisitId", { VisitId: visitId })
+      if (!data.length || data.length === data.filter(item => item.RECTYPEID === "2").length) {
+        const errorState: IStateError = { type: "WasVisit" }
+        setLoading(false)
+        navigate(RoutePaths.Error, {replace: true, state: errorState})
+        return
+      }
+      setRatings(toInitRatings(data.filter(item => item.RECTYPEID === "1")))
+      const visit = data.filter(item => item.RECTYPEID === "0")?.[0]
+      if (visit) {
+        setVisitRate({...visit, RATING: null})
+      }
       setLoading(false)
-    }, 1600)
+        
+    }
+    loadData()
   }, [])
   useEffect(() => {
     if (!error) {
@@ -88,13 +101,23 @@ export const RatingPage = () => {
     }
     return () => clearTimeout(alertTimer)
   }, [error.error])
-  const onChangeReview = (e: React.ChangeEvent<HTMLTextAreaElement>) => setReview(e.target.value)
+  const onChangeReview = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setVisitRate(prev => ({...prev as IRatingForVisit, COMMENT: e.target.value}))
+  }
   const isRatingsDone = useMemo(() => {
     const isVisitDone = visitRate !== null
     const isSpecRatingsDone = Object
       .values(ratings)
-      .map((item) => item.rating)
+      .map((item) => item.RATING)
       .every(rate => rate !== null)
+    return isVisitDone && isSpecRatingsDone
+  }, [visitRate, ratings])
+  const isOnlyBestRatings = useMemo(() => {
+    const isVisitDone = visitRate?.RATING === 5
+    const isSpecRatingsDone = Object
+      .values(ratings)
+      .map((item) => item.RATING)
+      .every(rate => rate === 5)
     return isVisitDone && isSpecRatingsDone
   }, [visitRate, ratings])
   const onSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -104,17 +127,35 @@ export const RatingPage = () => {
       return
     }
     try {
+      const specItems = Object.values(ratings)
+      const visitItems = visitRate ? [visitRate] : []
+      const promises = [...visitItems, ...specItems].map(item => {
+        return request("CRVSubmit", {
+          CRVId: item.CRVID,
+          Rating: item.RATING,
+          Comment: item.COMMENT,
+        })
+      })
       setFormLoading(true)
-      await delay(1000)
+      const res = await Promise.all(promises)
       setFormLoading(false)
-      navigate(RoutePaths.Thanks)
+      const redirectUrl = "" // пока нет
+      if (isOnlyBestRatings) {
+        navigate(RoutePaths.Thanks, {replace: true, state: {fromReview: true, redirectUrl}})
+      } else {
+        if(redirectUrl) {
+          window.location.href = redirectUrl
+        } else {
+          navigate(RoutePaths.Finish, {replace: true})
+        }
+      }
     } catch (error) {
       setFormLoading(false)
       setError({error: true, message: (error as Error)?.message ?? "Ошибка при отправлении отзыва"})
     }
   }
   const onChangeVisitRate: ChangeRateFn = useCallback((event, value) => {
-    setVisitRate(value)
+    setVisitRate((prev) => ({...prev as IRatingForVisit, RATING: value}))
   }, [])
 
   const onChangeSpecRate = useCallback((id: string): ChangeRateFn => (event: React.SyntheticEvent, value: IRating) => {
@@ -122,7 +163,7 @@ export const RatingPage = () => {
       ...prev,
       [id]: {
         ...prev[id],
-        rating: value
+        RATING: value
       }
     }))
   }, [])
@@ -156,12 +197,12 @@ export const RatingPage = () => {
         component="form"
         onSubmit={onSubmitForm}
       >
-        <RatingItem
+        {!!visitRate && <RatingItem
           onChange={onChangeVisitRate}
-          value={visitRate}
+          value={visitRate?.RATING || null}
           Icon={AssignmentIcon}
           text='Оцените визит'
-        />
+        />}
         <RatingSpecList 
           items={Object.values(ratings)}
           onChange={onChangeSpecRate}
@@ -171,7 +212,7 @@ export const RatingPage = () => {
             multiline
             label="Поделитесь впечатлениями"
             onChange={onChangeReview}
-            value={review}
+            value={visitRate?.COMMENT ?? ""}
             minRows={2}
             fullWidth
             maxRows={5}

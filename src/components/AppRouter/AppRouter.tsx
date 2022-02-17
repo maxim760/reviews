@@ -41,7 +41,6 @@ const boxStyle = {
 
 export const AppRouter = () => {
   const location = useLocation()
-  console.log({location})
   return (
     <Box sx={boxStyle} >
       <TransitionGroup className="transition-group">
