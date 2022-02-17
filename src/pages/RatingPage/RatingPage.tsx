@@ -77,7 +77,6 @@ export const RatingPage = () => {
       const data: IRatingForVisit[] = await request("CRVGetListByVisitId", { VisitId: visitId })
       if (!data.length || data.length === data.filter(item => item.RECTYPEID === "2").length) {
         const errorState: IStateError = { type: "WasVisit" }
-        setLoading(false)
         navigate(RoutePaths.Error, {replace: true, state: errorState})
         return
       }
