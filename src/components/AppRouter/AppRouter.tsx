@@ -2,6 +2,8 @@ import {Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { RedirectPath, routes } from "../../utils/router/routes"
 import Box from "@mui/material/Box"
 import { TransitionGroup, CSSTransition } from "react-transition-group";
+import { useMemo } from "react";
+import { Redirect } from "../../utils/router/Redirect";
 // https://codesandbox.io/s/l9m3zrj4lq?file=/src/components/Container.js:1028-1440 - анимации отсюда
 
 const durationMS = 300
@@ -41,31 +43,38 @@ const boxStyle = {
 
 export const AppRouter = () => {
   const location = useLocation()
-  return (
-    <Box sx={boxStyle} >
-      <TransitionGroup className="transition-group">
-        <CSSTransition
-          key={location.key}
-          timeout={{ enter: durationMS, exit: durationMS }}
-          classNames="fade"
-        >
-          <section className="route-section">
-            <Routes location={location}>
-              {routes.map(({ Page, path }) => (
+  const router = useMemo(() => {
+    return (
+      <Box sx={boxStyle} >
+        <TransitionGroup className="transition-group">
+          <CSSTransition
+            key={location.pathname}
+            timeout={{ enter: durationMS, exit: durationMS }}
+            classNames="fade"
+          >
+            <section className="route-section">
+              <Routes location={location} >
+                {routes.map(({ Page, path }) => (
+                  <Route
+                    key={path}
+                    element={<Page />}
+                    path={path}
+                    index={path === "/"} />
+                  ))}
                 <Route
-                  key={path}
-                  element={<Page />}
-                  path={path}
-                  index={path === "/"} />
-                ))}
-              <Route
-                path="*"
-                element={<Navigate to={RedirectPath} />}
-              />
-            </Routes>
-          </section>
-        </CSSTransition>
-      </TransitionGroup>
-    </Box>
+                  path="*"
+                  element={<Redirect />}
+                />
+              </Routes>
+            </section>
+          </CSSTransition>
+        </TransitionGroup>
+      </Box>
+    )
+  }, [location.pathname])
+  return (
+    <>
+      {router}
+    </>
   )
 }

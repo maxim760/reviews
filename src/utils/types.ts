@@ -10,6 +10,18 @@ export type ISpecItem = {
   COMMENT: string,
 }
 
+export type IOption = {
+  ID: string,
+  PARAMVALUE: string
+}
+
+export type IOptionsData = {
+  successUrl?: string,
+  badUrl?: string,
+  successText?: string,
+  badText?: string
+}
+
 export type IRatingForVisit = {
   COMMENT: string
   CRVID: string

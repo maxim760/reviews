@@ -9,20 +9,17 @@ import AssignmentIcon from '@mui/icons-material/AssignmentIndOutlined';
 import { MainTemplate } from "../../components/templates/MainTemplate";
 import { RoutePaths } from "../../utils/router/routes";
 import {useNavigate} from "react-router-dom"
-import { ChangeRateFn, IRating, IRatingForVisit, IStateError } from "../../utils/types";
+import { ChangeRateFn, IOption, IOptionsData, IRating, IRatingForVisit, IStateError } from "../../utils/types";
 import {RatingItem, RatingSpecList} from "./components"
-import { request, ReviewData } from "../../utils";
+import { formatOptions, request, ReviewData } from "../../utils";
 import { useNavigateSameParams } from "../../utils/hooks/useNavigateSameParams";
 const mockData: IRatingForVisit[] = [
   {RECNAME: "Алина Алинова", CRVID: "3", DOCID: "3", RATING: null, COMMENT: "", IMGURL: "", RECTYPEID: "1"},
-  {RECNAME: "Ирина Петрова", CRVID: "4", DOCID: "4", RATING: null, COMMENT: "", IMGURL: "", RECTYPEID: "1"},
 ]
 
 type IRatingState = {
   [key: string]: IRatingForVisit
 }
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const toInitRatings = (data: IRatingForVisit[]): IRatingState => {
   return data
@@ -68,13 +65,17 @@ export const RatingPage = () => {
   const [ratings, setRatings] = useState<IRatingState>({})
   const [error, setError] = useState({error: false, message: ''})
   const [loading, setLoading] = useState(true)
+  const [options, setOptions] = useState<IOptionsData>({})
   const [formLoading, setFormLoading] = useState(false)
   const visitId = ReviewData.getVisitId()
   const removeError = () => setError(prev => ({...prev, error: false}))
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
-      const data: IRatingForVisit[] = await request("CRVGetListByVisitId", { VisitId: visitId })
+      const getData: Promise<IRatingForVisit[]> = request("CRVGetListByVisitId", { VisitId: visitId });
+      const getOptions: Promise<IOption[]> = request("OrGetOptionOnline");
+      const [data, options] = await Promise.all([getData, getOptions])
+      setOptions(formatOptions(options))
       if (!data.length || data.length === data.filter(item => item.RECTYPEID === "2").length) {
         const errorState: IStateError = { type: "WasVisit" }
         navigate(RoutePaths.Error, {replace: true, state: errorState})
@@ -86,7 +87,6 @@ export const RatingPage = () => {
         setVisitRate({...visit, RATING: null})
       }
       setLoading(false)
-        
     }
     loadData()
   }, [])
@@ -104,19 +104,11 @@ export const RatingPage = () => {
     setVisitRate(prev => ({...prev as IRatingForVisit, COMMENT: e.target.value}))
   }
   const isRatingsDone = useMemo(() => {
-    const isVisitDone = visitRate !== null
+    const isVisitDone = !!visitRate && visitRate?.RATING !== null
     const isSpecRatingsDone = Object
       .values(ratings)
       .map((item) => item.RATING)
       .every(rate => rate !== null)
-    return isVisitDone && isSpecRatingsDone
-  }, [visitRate, ratings])
-  const isOnlyBestRatings = useMemo(() => {
-    const isVisitDone = visitRate?.RATING === 5
-    const isSpecRatingsDone = Object
-      .values(ratings)
-      .map((item) => item.RATING)
-      .every(rate => rate === 5)
     return isVisitDone && isSpecRatingsDone
   }, [visitRate, ratings])
   const onSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -136,18 +128,15 @@ export const RatingPage = () => {
         })
       })
       setFormLoading(true)
-      const res = await Promise.all(promises)
-      setFormLoading(false)
-      const redirectUrl = "" // пока нет
-      if (isOnlyBestRatings) {
-        navigate(RoutePaths.Thanks, {replace: true, state: {fromReview: true, redirectUrl}})
-      } else {
-        if(redirectUrl) {
-          window.location.href = redirectUrl
-        } else {
-          navigate(RoutePaths.Finish, {replace: true})
+      await Promise.all(promises)
+      navigate(RoutePaths.Thanks, {
+        replace: true, state: {
+          fromReview: true,
+          options,
+          isSuccess: (visitRate?.RATING || 0) >= 4
         }
-      }
+      })
+      setFormLoading(false)
     } catch (error) {
       setFormLoading(false)
       setError({error: true, message: (error as Error)?.message ?? "Ошибка при отправлении отзыва"})
