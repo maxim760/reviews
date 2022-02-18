@@ -159,7 +159,7 @@ export const RatingPage = () => {
     return (
       <MainTemplate>
         <Box sx={styles.wrapper} component="form">
-          <RatingItem onChange={() => {}} value={null} Icon={AssignmentIcon} text='' loading />
+          <RatingItem onChange={() => {}} value={null} Icon={AssignmentIcon} text='' loading withAvatar={false} />
           <RatingSpecList items={Object.values(toInitRatings(mockData))} onChange={() => () => {}} loading />
           <Box sx={styles.wrapperTextArea}>
             <Skeleton variant="rectangular" sx={{borderRadius: "6px", width: "100%", maxWidth: "none"}} >
@@ -186,6 +186,7 @@ export const RatingPage = () => {
         onSubmit={onSubmitForm}
       >
         {!!visitRate && <RatingItem
+          withAvatar={false}
           onChange={onChangeVisitRate}
           value={visitRate?.RATING || null}
           Icon={AssignmentIcon}

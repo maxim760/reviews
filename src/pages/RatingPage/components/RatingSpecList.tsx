@@ -20,10 +20,13 @@ export const RatingSpecList: FC<IProps> = memo(({items, onChange, loading}) => {
           const id = props.CRVID
           const specName = props.RECNAME
           const rating = props.RATING
+          const img = props.IMGURL
           return (
             <Fragment key={id}>
               <Divider sx={{ my: 1 }} />
               <RatingItem
+                withAvatar
+                img={img}
                 loading={loading}
                 Icon={CheckIcon}
                 onChange={onChange(id)}
